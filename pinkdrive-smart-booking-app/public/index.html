@@ -1,0 +1,212 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PinkDrive - Đặt xe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN OVERLAY -->
+<div class="login-overlay" id="screen-login">
+  <div class="login-box">
+    <div class="login-logo">
+      <img class="login-logo-img" src="pinkdrive-logo.png" alt="Pink Drive logo">
+      <p>Nền tảng đặt xe di chuyển thông minh</p>
+    </div>
+    <div class="login-tabs">
+      <button class="login-tab active" data-tab="login">Đăng nhập</button>
+      <button class="login-tab" data-tab="register">Đăng ký</button>
+    </div>
+    <div id="login-form">
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input class="form-input" id="login-phone" placeholder="0912 345 678" type="tel">
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input class="form-input" id="login-pw" placeholder="••••••••" type="password">
+      </div>
+      <button class="btn btn-pink" id="btn-login" style="margin-top:8px">Đăng nhập</button>
+      <div class="divider">hoặc</div>
+      <button class="btn btn-ghost" onclick="demoLogin()">🎭 Đăng nhập Demo tự động</button>
+    </div>
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>Họ và tên</label>
+        <input class="form-input" id="reg-name" placeholder="Ví dụ: Nguyễn Văn A">
+      </div>
+      <div class="form-group">
+        <label>Số điện thoại</label>
+        <input class="form-input" id="reg-phone" placeholder="0912 345 678" type="tel">
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input class="form-input" id="reg-pw" placeholder="Tối thiểu 6 ký tự" type="password">
+      </div>
+      <button class="btn btn-pink" id="btn-register" style="margin-top:8px">Tạo tài khoản</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app-container" id="app-main" style="display:none">
+  <!-- TOP HEADER -->
+  <header class="app-header">
+    <div class="header-logo">
+      <img class="header-logo-img" src="pinkdrive-logo.png" alt="Pink Drive logo">
+    </div>
+    <div class="header-actions">
+      <div class="header-wallet" onclick="showTopup()" title="Nạp tiền">
+        <span id="header-wallet-balance">Ví: 0đ</span>
+        <span class="wallet-add">+</span>
+      </div>
+      <div class="header-user" onclick="showHistory()" title="Lịch sử chuyến đi">
+        <div class="user-avatar" id="header-avatar">A</div>
+        <span id="header-name">Nguyễn Văn A</span>
+      </div>
+      <button class="btn-icon" onclick="logout()" title="Đăng xuất">🚪</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- LEFT PANEL (CONTROLS) -->
+    <div class="side-panel">
+      
+      <!-- STEP 1: CHOOSE LOCATION -->
+      <div class="panel-step" id="step-location" style="display:flex">
+        <h2 class="step-title">Bạn muốn đi đâu?</h2>
+        <div class="service-choice" style="margin-bottom:16px;">
+  <div style="font-weight:800; margin-bottom:10px;">Bạn muốn dùng dịch vụ nào?</div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+    <button id="loc-service-ride" type="button" style="padding:12px; border-radius:14px; border:1px solid #f472b6; background:#ec4899; color:white; font-weight:900; cursor:pointer;">
+      🛵 Đặt xe
+    </button>
+
+    <button id="loc-service-food" type="button" style="padding:12px; border-radius:14px; border:1px solid #f472b6; background:white; color:#ec4899; font-weight:900; cursor:pointer;">
+      🍔 Giao đồ ăn
+    </button>
+  </div>
+</div>
+        <div class="location-box">
+          <div class="loc-row">
+            <div class="loc-dot pickup"></div>
+            <input type="text" class="loc-input" id="input-pickup" placeholder="Điểm đón của bạn..." autocomplete="off">
+          </div>
+          <div class="autocomplete-dropdown" id="drop-pickup"></div>
+          <div class="loc-divider"></div>
+          <div class="loc-row">
+            <div class="loc-dot dropoff"></div>
+            <input type="text" class="loc-input" id="input-drop" placeholder="Nhập điểm đến..." autocomplete="off">
+          </div>
+          <div class="autocomplete-dropdown" id="drop-drop"></div>
+        </div>
+        <div class="hint-text">💡 <strong>Mẹo:</strong> Nhập địa danh hoặc chọn trực tiếp trên bản đồ bên phải.</div>
+      </div>
+
+      <!-- STEP 2: VEHICLE & FARE -->
+      <div class="panel-step" id="step-vehicle" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0;">
+          <h2 class="step-title" style="margin:0">Chọn loại xe</h2>
+          <button class="btn-link" onclick="resetBooking()">Sửa lộ trình</button>
+        </div>
+        
+        <div class="vehicle-list" id="vehicle-list">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div class="fare-summary" id="fare-summary" style="display:none">
+          <div class="fare-row"><span>Khoảng cách</span><span id="summary-dist">0 km</span></div>
+          <div class="fare-row total"><span>Tổng thanh toán</span><span id="summary-total">0đ</span></div>
+          
+          <h3 class="small-heading">Phương thức thanh toán</h3>
+          <div class="payment-options">
+            <div class="pay-opt selected" data-method="cash">💵 Tiền mặt</div>
+            <div class="pay-opt" data-method="wallet">👛 Ví PinkDrive</div>
+          </div>
+          
+          <button class="btn btn-pink btn-large" id="btn-confirm-book" onclick="confirmBooking()">Đặt xe ngay</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: TRACKING -->
+      <div class="panel-step" id="step-tracking" style="display:none">
+        <h2 class="step-title" id="tracking-title">Đang tìm tài xế...</h2>
+        <div class="driver-info">
+          <div class="driver-avt" id="trk-driver-avt">🧑‍✈️</div>
+          <div class="driver-details">
+            <div class="driver-name" id="trk-driver-name">Đang kết nối</div>
+            <div class="driver-plate" id="trk-driver-plate">Vui lòng đợi giây lát</div>
+          </div>
+          <div class="driver-vehicle" id="trk-vehicle-emoji">🚗</div>
+        </div>
+        
+        <div class="tracking-route">
+          <div class="trk-row"><div class="loc-dot pickup"></div> <span id="trk-pickup">...</span></div>
+          <div class="trk-row"><div class="loc-dot dropoff"></div> <span id="trk-drop">...</span></div>
+        </div>
+        
+        <div class="progress-bar">
+          <div class="progress-fill" id="trk-progress"></div>
+        </div>
+        <div class="progress-labels">
+          <span id="step-find">Tìm xe</span>
+          <span id="step-coming">Đang đến</span>
+          <span id="step-pickup">Đón khách</span>
+          <span id="step-dropoff">Trả khách</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL (MAP) -->
+    <div class="map-panel">
+      <div id="main-map"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-history">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>Lịch sử chuyến đi</h2>
+      <button class="btn-icon" onclick="$('modal-history').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="history-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-topup">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nạp tiền vào ví</h2>
+      <button class="btn-icon" onclick="$('modal-topup').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="topup-grid">
+        <button class="btn-outline topup-btn" data-amount="50000">50.000đ</button>
+        <button class="btn-outline topup-btn" data-amount="100000">100.000đ</button>
+        <button class="btn-outline topup-btn" data-amount="200000">200.000đ</button>
+        <button class="btn-outline topup-btn" data-amount="500000">500.000đ</button>
+      </div>
+      <button class="btn btn-pink" style="margin-top:24px" onclick="processTopup()">Xác nhận nạp tiền</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+
+
+
